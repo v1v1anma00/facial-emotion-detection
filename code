@@ -1,0 +1,88 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.utils import to_categorical
+import seaborn as sns
+from sklearn import metrics
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Dropout, BatchNormalization, Flatten, Dense
+from keras.optimizers import Adam
+from keras.losses import categorical_crossentropy
+from keras.callbacks import ModelCheckpoint
+
+# Download and load the data
+!wget -q --show-progress "https://storage.googleapis.com/data-bucket-1/Data/AI%/Emotion%20Detection/pureX.npy"
+!wget -q --show-progress "https://storage.googleapis.com/data-bucket-1/Data/AI%/Emotion%20Detection/dataY.npy"
+
+# Load the input data and labels
+X_data = np.load('pureX.npy')  # This contains the image data (likely in grayscale)
+y_labels = np.load('dataY.npy')  # This contains the emotion labels
+
+y_onehot = to_categorical(y_labels, num_classes=5)  # Assuming 5 emotion classes
+
+# Reshape and normalize the data for CNN input: (num_samples, width, height, 1)
+X_data = X_data.reshape(X_data.shape[0], 48, 48, 1)  # Assuming 48x48 grayscale images
+X_data = X_data.astype('float32') / 255.0  # Normalize the pixel values to [0,1]
+
+X_train_cnn, X_test_cnn, y_train, y_test = train_test_split(X_data, y_onehot, test_size=0.1, random_state=42)
+
+# Define the CNN model
+cnn_model = Sequential()
+
+cnn_model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', input_shape=(48, 48, 1), kernel_regularizer=l2(0.01)))
+cnn_model.add(Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'))
+cnn_model.add(BatchNormalization())
+cnn_model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+cnn_model.add(Dropout(0.5))
+
+cnn_model.add(Conv2D(128, kernel_size=(3, 3), activation='relu', padding='same'))
+cnn_model.add(BatchNormalization())
+cnn_model.add(Conv2D(128, kernel_size=(3, 3), activation='relu', padding='same'))
+cnn_model.add(BatchNormalization())
+cnn_model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+cnn_model.add(Dropout(0.5))
+
+cnn_model.add(Conv2D(256, kernel_size=(3, 3), activation='relu', padding='same'))
+cnn_model.add(BatchNormalization())
+cnn_model.add(Conv2D(256, kernel_size=(3, 3), activation='relu', padding='same'))
+cnn_model.add(BatchNormalization())
+cnn_model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+cnn_model.add(Dropout(0.5))
+
+cnn_model.add(Flatten())
+cnn_model.add(Dense(512, activation='relu'))
+cnn_model.add(Dropout(0.4))
+cnn_model.add(Dense(256, activation='relu'))
+cnn_model.add(Dropout(0.4))
+cnn_model.add(Dense(128, activation='relu'))
+cnn_model.add(Dropout(0.5))
+cnn_model.add(Dense(5, activation='softmax'))  # 5 output labels for 5 emotions
+
+checkpoint = ModelCheckpoint('best_cnn_model.h5', verbose=1, monitor='val_loss', save_best_only=True, mode='auto')
+
+# Compile the model
+cnn_model.compile(loss=categorical_crossentropy, optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
+
+cnn_history = cnn_model.fit(X_train_cnn, y_train, batch_size=64, epochs=20, verbose=1,
+                            callbacks=[checkpoint], validation_data=(X_test_cnn, y_test), shuffle=True)
+
+cnn_performance = cnn_model.evaluate(X_test_cnn, y_test, batch_size=64)
+
+# Plot accuracy and loss graphs
+def plot_graphs(history):
+    plt.figure(figsize=[12,4])
+
+    # Plot accuracy
+    plt.subplot(1, 2, 1)
+    plt.plot(history.history['accuracy'], label='Train Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title('Model Accuracy')
+    plt.xlabel('Epoch')
+    plt.ylabel('Accuracy')
+    plt.legend()
+
+    # Plot loss
+    plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'], label='Train Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Model Loss
