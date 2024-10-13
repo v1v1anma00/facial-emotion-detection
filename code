@@ -85,4 +85,4 @@ def plot_graphs(history):
     plt.subplot(1, 2, 2)
     plt.plot(history.history['loss'], label='Train Loss')
     plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.title('Model Loss
+    plt.title('Model Loss)
